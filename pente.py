@@ -8,31 +8,51 @@ from game_engine import BOARD_SIZE, Pente
 
 def main():
     parser = argparse.ArgumentParser(description="Play Pente!")
+
+    # Add argument to play in interactive mode
     parser.add_argument(
         "-i", "--interactive", action="store_true", help="Play in interactive mode"
     )
+
+    # Add argument to save the move history
     parser.add_argument(
         "-s",
         "--save",
         action="store_true",
         help="Write the move history after the game",
     )
+
+    # Add argument to read moves from a string
     parser.add_argument(
         "-m",
         "--moves",
         help='Provide a string of moves to play (format: "x1,y1;x2,y2;...")',
     )
+    
+    # Add argument to read moves from a file
     parser.add_argument(
         "-f",
         "--file",
         help='Provide a path to a file containing moves to play (format: "x1,y1;x2,y2;...")',
     )
+    
+    # Add argument to visualize the board in non-interactive mode
     parser.add_argument(
         "-v",
         "--visualize",
         action="store_true",
         help="Show the board as it is played in non-interactive mode",
     )
+
+    # Add argument to change the visualization delay
+    parser.add_argument(
+        "-d",
+        "--delay",
+        type=float,
+        default=1.0,
+        help="Set the delay between moves in non-interactive mode",
+    )
+
     # Add argument to run the tests
     parser.add_argument(
         "-t",
@@ -46,10 +66,10 @@ def main():
     if args.interactive:
         play_interactive(save_moves=args.save)
     elif args.moves:
-        play_moves(args.moves, visualize=args.visualize)
+        play_moves(args.moves, visualize=args.visualize, delay=args.delay)
     elif args.file:
         with open(args.file, "r") as f:
-            play_moves(f.read(), visualize=args.visualize)
+            play_moves(f.read(), visualize=args.visualize, delay=args.delay)
     elif args.test:
         # Run the tests with pytest
         pytest.main(["-v", "tests.py"])
@@ -90,7 +110,7 @@ def play_interactive(save_moves=False):
         game.save_moves_to_file()
 
 
-def play_moves(moves_str: str, visualize: bool = False) -> None:
+def play_moves(moves_str: str, visualize: bool = False, delay: float = 1) -> None:
     game = Pente()
     for move_str in moves_str.split(";"):
         x, y = move_str.split(",")
@@ -102,10 +122,12 @@ def play_moves(moves_str: str, visualize: bool = False) -> None:
 
         if visualize:
             game.print_board()
-            time.sleep(1)
+            time.sleep(delay)
 
-    print(f"{game.winner} wins!")
-
+    if not game.game_over:
+        print("The game did not finish.")
+    else:
+        print(f"{game.winner} wins!")
 
 if __name__ == "__main__":
     main()

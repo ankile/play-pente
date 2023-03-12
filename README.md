@@ -84,6 +84,29 @@ python pente.py --file "path/to/file"
 python pente.py -f "path/to/file"
 ```
 
+In both of the above cases, you can also have the game visualized as the moves are being played:
+
+```python
+# Together with the --moves option
+python pente.py --moves "x1,y1;x2,y2;..." --visualize
+# or
+python pente.py -m "x1,y1;x2,y2;..." -v
+
+# Together with the --file option
+python pente.py --file "path/to/file" --visualize
+# or
+python pente.py -f "path/to/file" -v
+```
+
+The default delay between moves is 1 second, but you can change this by using the `--delay` option, e.g.:
+
+```python
+python pente.py --file "path/to/file" --visualize --delay 0.5
+# or
+python pente.py -f "path/to/file" -v -d 0.5
+```
+
+
 Use the --help option to see a list of all available options:
 
 ```python
