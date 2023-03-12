@@ -1,6 +1,6 @@
 import pytest
 
-from pente import Pente, BOARD_SIZE
+from game_engine import Pente, BOARD_SIZE
 
 
 @pytest.fixture

@@ -1,154 +1,111 @@
-from datetime import datetime
-from typing import List, Optional, Tuple
+import argparse
+import time
+
+import pytest
+
+from game_engine import BOARD_SIZE, Pente
 
 
-BOARD_SIZE = 19
+def main():
+    parser = argparse.ArgumentParser(description="Play Pente!")
+    parser.add_argument(
+        "-i", "--interactive", action="store_true", help="Play in interactive mode"
+    )
+    parser.add_argument(
+        "-s",
+        "--save",
+        action="store_true",
+        help="Write the move history after the game",
+    )
+    parser.add_argument(
+        "-m",
+        "--moves",
+        help='Provide a string of moves to play (format: "x1,y1;x2,y2;...")',
+    )
+    parser.add_argument(
+        "-f",
+        "--file",
+        help='Provide a path to a file containing moves to play (format: "x1,y1;x2,y2;...")',
+    )
+    parser.add_argument(
+        "-v",
+        "--visualize",
+        action="store_true",
+        help="Show the board as it is played in non-interactive mode",
+    )
+    # Add argument to run the tests
+    parser.add_argument(
+        "-t",
+        "--test",
+        action="store_true",
+        help="Run the tests",
+    )
+
+    args = parser.parse_args()
+
+    if args.interactive:
+        play_interactive(save_moves=args.save)
+    elif args.moves:
+        play_moves(args.moves, visualize=args.visualize)
+    elif args.file:
+        with open(args.file, "r") as f:
+            play_moves(f.read(), visualize=args.visualize)
+    elif args.test:
+        # Run the tests with pytest
+        pytest.main(["-v", "tests.py"])
+    else:
+        print("Please choose either interactive mode or provide a string of moves.")
 
 
-class Pente:
-    # Static variable for all possible directions to check: R, RD, D, LD, L, LU, U, RU
-    directions: List[Tuple[int, int]] = [
-        (0, 1),
-        (1, 1),
-        (1, 0),
-        (1, -1),
-        (0, -1),
-        (-1, -1),
-        (-1, 0),
-        (-1, 1),
-    ]
+def play_interactive(save_moves=False):
+    game = Pente(save_moves=save_moves)
+    print("Welcome to Pente!")
+    game.print_board()
+    while not game.game_over:
+        try:
+            x, y = input(
+                f"{game.current_player}, enter x and y coordinates separated by a space (e.g. '3 5'): "
+            ).split()
+        except ValueError:
+            print("Invalid input. Please enter two integers separated by a space.")
+            continue
+        if not x.isdigit() or not y.isdigit():
+            print("Invalid input. Please enter two integers separated by a space.")
+            continue
+        x = int(x)
+        y = int(y)
+        if x < 0 or x >= BOARD_SIZE or y < 0 or y >= BOARD_SIZE:
+            print(
+                f"Invalid move. The x and y coordinates must be between 0 and {BOARD_SIZE - 1}."
+            )
+            continue
+        if not game.place_stone(x, y):
+            print("Invalid move. That cell is already occupied.")
+            continue
+        game.print_board()
+        if game.game_over:
+            print(f"{game.winner} wins!")
 
-    def __init__(self, save_moves: bool = False) -> None:
-        self.board: List[List[str]] = [
-            ["." for _ in range(BOARD_SIZE)] for _ in range(BOARD_SIZE)
-        ]
-        self.current_player: str = "X"
-        self.opponent: str = "O"
-        self.winner: Optional[str] = None
-        self.game_over: bool = False
-        self.num_opponent_captures: int = 0
-        self.num_current_player_captures: int = 0
-        self.save_moves: bool = save_moves
-        self.moves: List[Tuple[int, int]] = []
+    if save_moves:
+        game.save_moves_to_file()
 
-    def print_board(self) -> None:
-        # Print top border
-        print("   " + " ".join([f"{i:2}" for i in range(BOARD_SIZE)]))
-        print(" +" + "-" * (BOARD_SIZE * 3 - 1) + "+")
 
-        # Print board rows with row numbers every 5th row
-        for i, row in enumerate(self.board):
-            print(f"{i:2}|", end="")
+def play_moves(moves_str: str, visualize: bool = False) -> None:
+    game = Pente()
+    for move_str in moves_str.split(";"):
+        x, y = move_str.split(",")
+        x = int(x)
+        y = int(y)
+        if not game.place_stone(x, y):
+            print(f"Invalid move: {move_str}")
+            return
 
-            for cell in row:
-                print(f" {cell} ", end="")
-            print("|")
+        if visualize:
+            game.print_board()
+            time.sleep(1)
 
-        # Print bottom border and current capture numbers
-        print(" +" + "-" * (BOARD_SIZE * 3 - 1) + "+")
-        print(
-            f"Captures: {self.current_player}={self.num_current_player_captures}, {self.opponent}={self.num_opponent_captures}"
-        )
+    print(f"{game.winner} wins!")
 
-    def place_stone(self, x: int, y: int) -> bool:
-        if self.board[x][y] != ".":
-            return False
-        self.board[x][y] = self.current_player
-        self.check_for_captures(x, y)
-        self.check_for_win(x, y)
-        self.current_player, self.opponent = self.opponent, self.current_player
 
-        self.moves.append((x, y))
-        return True
-
-    def check_for_captures(self, x: int, y: int) -> None:
-        # All possible directions to check for captures R, RD, D, LD, L, LU, U, RU
-        for dx, dy in Pente.directions:
-            captured_stones = self.check_capture(x, y, dx, dy)
-            if captured_stones:
-                self.remove_captured_stones(captured_stones)
-
-    def check_capture(self, x: int, y: int, dx: int, dy: int) -> List[Tuple[int, int]]:
-        captured_stones = []
-        num_opponent_stones = 0
-        i, j = x + dx, y + dy
-        while (
-            i >= 0
-            and i < BOARD_SIZE
-            and j >= 0
-            and j < BOARD_SIZE
-            and self.board[i][j] == self.opponent
-        ):
-            num_opponent_stones += 1
-            captured_stones.append((i, j))
-            i += dx
-            j += dy
-
-        if (
-            num_opponent_stones == 2
-            and i >= 0
-            and i < BOARD_SIZE
-            and j >= 0
-            and j < BOARD_SIZE
-            and self.board[i][j] == self.current_player
-        ):
-            self.num_opponent_captures += 2
-            return captured_stones
-        return []
-
-    def remove_captured_stones(self, captured_stones: List[Tuple[int, int]]) -> None:
-        for i, j in captured_stones:
-            self.board[i][j] = "."
-
-    def check_for_win(self, x: int, y: int) -> None:
-        if self.check_five_in_a_row(x, y):
-            self.winner = self.current_player
-            self.game_over = True
-        elif self.num_opponent_captures >= 10:
-            self.winner = self.current_player
-            self.game_over = True
-        elif self.num_current_player_captures >= 10:
-            self.winner = self.opponent
-            self.game_over = True
-
-    def check_five_in_a_row(self, x: int, y: int) -> bool:
-        for dx, dy in Pente.directions:
-            count: int = 1
-            i: int
-            j: int
-            i, j = x + dx, y + dy
-            while (
-                i >= 0
-                and i < BOARD_SIZE
-                and j >= 0
-                and j < BOARD_SIZE
-                and self.board[i][j] == self.current_player
-            ):
-                count += 1
-                i += dx
-                j += dy
-
-            if count >= 5:
-                return True
-        return False
-
-    def make_move(self, x: int, y: int) -> None:
-        if not self.game_over:
-            if self.place_stone(x, y):
-                self.print_board()
-                print(f"{self.winner} wins!")
-
-            else:
-                print("Invalid move. Try again.")
-        else:
-            print("Game over.")
-
-    def save_moves_to_file(self) -> None:
-        # Save the moves to a file
-        game_str = ";".join([f"{x},{y}" for x, y in self.moves])
-        filename = f"moves-{datetime.now()}.txt"
-        print(f"Saving game to {filename} with moves {game_str}")
-        with open(filename, "w") as f:
-            f.write(game_str)
-
-        print("Saved!")
+if __name__ == "__main__":
+    main()
